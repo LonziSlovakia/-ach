@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Šachový turnaj</title>
+    <style>
+        :root{
+            --darkorange:#FF4B35;
+            --orange:#FF6B35;
+            --flesh:#F7C59F;
+            --white:#EFEFD0;
+            --darkblue:#004E89;
+            --lightblue:#1A659E;
+            --darkwhite:#EFFFD0;
+        }
+        h1{
+            text-align: center;
+            margin-bottom: 1em;
+        }
+        th,tr,td {
+            border: 3px solid var(--darkblue);
+            padding:0.5em;
+            background-color: var(--lightblue);
+            justify-content: baseline;
+        }
+        
+        td button {
+            margin:0.25em;
+        }
+        body{
+            background-color: var(--white);
+            color: var(--lightblue);
+            font-family: Helvetica, sans-serif;
+            overflow-x: hidden;
+        }
+        p{
+            background-color: var(--darkwhite);
+            width: 95%;
+            padding: 0.5em;
+            border-radius: 10px;
+            border: 3px solid var(--orange);
+            transition: all 1s ease-in-out;
+        }
+        #tabulka{
+            border: 5px solid var(--darkblue);
+            border-collapse: collapse;
+            color:#CFEFFF;
+        }
+        form{
+            background-color: var(--darkwhite);
+            padding:0.5em;
+            border-radius: 10px;
+            display: inline-block;
+        }
+        input{
+            border-radius: 10px;
+            border:2px solid var(--darkblue);
+            padding:0.25em 0.5em;
+        }
+        button{
+            border: 3px solid var(--orange);
+            background-color: var(--white);
+            border-radius: 10px;
+            padding-left: 1em;
+            padding-right: 1em;
+        }
+        button:hover{
+            border: 3px solid var(--orange);
+            background-color:#fdfdfd;
+            border-radius: 10px;
+            padding-left: 1em;
+            padding-right: 1em;
+        }
+        button:active{
+            border: 3px solid var(--orange);
+            background-color:#f0d1d1;
+            border-radius: 10px;
+            padding-left: 1em;
+            padding-right: 1em;
+        }
+        .odstup{
+            margin-top:0.5em;
+        }
+        img{
+            width: 1.5em;
+        }
+        img::before{
+            padding-top: 1.5em;
+            content: "\00a0 ";
+        }
+    </style>
+</head>
+<body>
+    <h1>Šachový turnaj!</h1>
+    <form id="form" >
+        <label>Meno hráča: </label><input id="meno" name="meno" type="text"><br>
+        <button class="odstup" type="submit">Pridaj hráča</button>
+    </form><br>
+    <p id="oznam">Turnaj prebieha.</p>
+    
+    <div style="width: 100%; overflow-x: auto;">
+        <table id="tabulka">
+            <tr>
+                <th>Poradové číslo</th>
+                <th>Meno</th>
+                <th>Odohraté zápasy</th>
+                <th>Výhry</th>
+                <th>Prehry</th>
+                <th>Remízy</th>
+                <th>Body</th>
+                <th colspan="4"></th>
+            </tr>
+        </table>
+    </div><br>
+
+    <button class="odstup" onclick="novaHra();">Nová hra!</button>
+
+<script>
+    const form = document.getElementById("form");
+    const tabulka = document.getElementById("tabulka");
+    const oznam = document.getElementById("oznam");
+    let hraci = [];
+    let predoslePoradie = [];
+    
+    //classy Hráč v podľa ktorej sú vytvorení jednotlivý hráči a informácie o nich.
+    class Hrac {
+        constructor(meno){
+            this.meno = meno;
+            this.zapasy = this.vyhry = this.prehry = this.remizy = 0;
+        }    
+    }
+    
+    // Event listener ktorý počúva kedy sa odošle HTML formulár a vtedy vykoná daný kód 
+    form.addEventListener("submit", (event) => {
+        event.preventDefault(); //nerefreshuje stránku po submitnutí
+        let meno = document.getElementById("meno").value;
+        hraci.push(new Hrac(meno.charAt(0).toUpperCase() + meno.slice(1))); //vytvorí sa nový hráč s menom s veľkým začiatočným písmenom a pushne sa do arrayu hráčov.
+        document.getElementById("meno").value = ""; //po odoslaní formulára sa formulárové políčko "meno" vyprázdni
+
+        //uloženie do local storage
+        localStorage.setItem("hraci",JSON.stringify(hraci));
+        
+        //všetci hráči sa v arrayi zoradia a vypíšu sa do tabuľky
+        zoradit(hraci);
+        ukazHracov();
+    });
+    
+    //funkcia ktorá vytvorí bunku v tabuľke a do nej vloží informácie ktoré sú parametrom tejto funkcie
+    function appending(obsah){
+        let bunka = document.createElement("td");
+        let text = document.createTextNode(obsah);
+        bunka.appendChild(text);
+        return bunka;
+    }
+
+    //funkcia ktorá vytvorí bunku v tabuľke a do nej vloží informácie ktoré sú parametrom tejto funkcie spolu s šipkou a čísielkom, ktoré indikuje zmeny v tabuľke
+    function appendingPic(obsah,element){
+        let text = document.createTextNode(obsah);
+        let bunka = document.createElement("td");
+        let img = document.createElement("img");
+        bunka.appendChild(text);
+
+        if (element.zapasy === 0){} //podmienka ktorá na základe zmeny poradia zapisuje do tabuľky šipku a číslo ktoré indikuje o koľko sa zmenilo poradie hráča od poslednej zmeny.
+        else if(hraci.indexOf(element) < JSON.parse(localStorage.getItem("predoslePoradie")).findIndex( x => x.meno === element.meno)){ 
+            img.src = "up-arrow.svg";
+            bunka.appendChild(img);
+            let text = JSON.parse(localStorage.getItem("predoslePoradie")).findIndex( x => x.meno === element.meno) - hraci.indexOf(element);
+            let string = "+" + text.toString();
+            bunka.appendChild(document.createTextNode(string));
+
+        }else if(hraci.indexOf(element) > JSON.parse(localStorage.getItem("predoslePoradie")).findIndex( x => x.meno === element.meno)){
+            img.src = "down-arrow.svg";
+            bunka.appendChild(img);
+            let text = hraci.indexOf(element) - JSON.parse(localStorage.getItem("predoslePoradie")).findIndex( x => x.meno === element.meno);
+            let string = "- " + text.toString();
+            bunka.appendChild(document.createTextNode(string));
+        }
+        return bunka;
+    }
+
+    //funkcia ktorá vymaže údaje z tabuľky a následne ich znova vyrenderuje s aktuálnymi informáciami
+    function ukazHracov(){
+        //Vymazuj v tabuľke riadky až pokým ich nebude menej ako 2
+        while (tabulka.childNodes.length > 2) {
+            tabulka.removeChild(tabulka.lastChild);
+        }
+    
+        //pre každý prvok z poľa hráči sa vytvorí riadok v tabuľke s informáciami o ňom
+        hraci.forEach(element => {  
+            //samotný riadok hráča
+            let riadok = document.createElement("tr");
+            riadok.appendChild(appendingPic(hraci.indexOf(element) + 1 + ".",element)); //poradové číslo.
+            riadok.appendChild(appending(element.meno));
+            riadok.appendChild(appending(element.zapasy));
+            riadok.appendChild(appending(element.vyhry));
+            riadok.appendChild(appending(element.prehry));
+            riadok.appendChild(appending(element.remizy));
+            riadok.appendChild(appending(+element.vyhry * 1 + +element.remizy * 0.5));
+
+            //tlačidlo na pridanie výhry
+            let vyhraButton = document.createElement("button");
+            vyhraButton.appendChild(document.createTextNode("Pridať výhru"));
+            vyhraButton.addEventListener("click", () => {
+                //poradie z predošlého stavu tabuľky sa uloží do premennej a do localStorage
+                predoslePoradie = hraci;
+                localStorage.setItem("predoslePoradie",JSON.stringify(predoslePoradie));
+                //zmení sa stav vyhier a zápasov v poli
+                element.vyhry = element.vyhry + 1;
+                element.zapasy = element.zapasy + 1;
+                // nové pole so zoradenými hráčmi sa zapíše do localStorage
+                zoradit(hraci);
+                localStorage.setItem("hraci",JSON.stringify(hraci));
+                //do tabuľky sa načítajú aktuálne údaje
+                ukazHracov();
+                //v paragrafe "oznam" nad tabuľkou sa zobrazi informácie o zmene ktorú používateľ práve vykonal a zmení sa jeho štýl.
+                oznam.innerHTML = (element.meno.charAt(0).toUpperCase() + element.meno.slice(1)) + " vyhral a získava jeden bod!";
+                oznam.style.backgroundColor = "var(--orange)";
+                setTimeout(function(){oznam.style.backgroundColor = "var(--darkwhite)";oznam.innerHTML = "Turnaj prebieha." },3000);// po troch sekundách oznámenie aj jeho štýl zmiznú.
+            });
+            //všetko čo sme doteraz vytvorili sa pripne na riadok s informáciami o hráčovi
+            let vyhraTd = document.createElement("td");
+            vyhraTd.appendChild(vyhraButton);
+            riadok.appendChild(vyhraTd);
+            
+            //tlačidlo na pridanie prehry
+            let prehraButton = document.createElement("button");
+            prehraButton.appendChild(document.createTextNode("Pridať prehru"));
+            prehraButton.addEventListener("click", () => {
+                //poradie z predošlého stavu tabuľky sa uloží do premennej a do localStorage
+                predoslePoradie = hraci;
+                localStorage.setItem("predoslePoradie",JSON.stringify(predoslePoradie));
+                //zmení sa stav prehier a zápasov v poli
+                element.prehry = element.prehry + 1;
+                element.zapasy = element.zapasy + 1;
+                // nové pole so zoradenými hráčmi sa zapíše do localStorage
+                zoradit(hraci);
+                localStorage.setItem("hraci",JSON.stringify(hraci));
+                //do tabuľky sa načítajú aktuálne údaje
+                ukazHracov();
+                //v paragrafe "oznam" nad tabuľkou sa zobrazi informácie o zmene ktorú používateľ práve vykonal a zmení sa jeho štýl
+                oznam.style.backgroundColor = "var(--orange)";
+                oznam.innerHTML = (element.meno.charAt(0).toUpperCase() + element.meno.slice(1)) + " prehral a tak nezískava žiaden bod.";
+                setTimeout(function(){oznam.style.backgroundColor = "var(--darkwhite)";oznam.innerHTML = "Turnaj prebieha." }, 3000);// po troch sekundách oznámenie aj jeho štýl zmiznú.
+            });
+            //všetko čo sme doteraz vytvorili sa pripne na riadok s informáciami o hráčovi
+            let prehraTd = document.createElement("td");
+            prehraTd.appendChild(prehraButton);
+            riadok.appendChild(prehraTd);
+            
+            //pridanie remizy
+            let remizaButton = document.createElement("button");
+            remizaButton.appendChild(document.createTextNode("Pridať remizu"));
+            remizaButton.addEventListener("click", () => {
+                //poradie z predošlého stavu tabuľky sa uloží do premennej a do localStorage
+                predoslePoradie = hraci;
+                localStorage.setItem("predoslePoradie",JSON.stringify(predoslePoradie));
+                //zmení sa stav remíz a zápasov v poli
+                element.remizy = element.remizy + 1;
+                element.zapasy = element.zapasy + 1;
+                // nové pole so zoradenými hráčmi sa zapíše do localStorage
+                zoradit(hraci);
+                localStorage.setItem("hraci",JSON.stringify(hraci));
+                //do tabuľky sa načítajú aktuálne údaje
+                ukazHracov();
+                //v paragrafe "oznam" nad tabuľkou sa zobrazi informácie o zmene ktorú používateľ práve vykonal a zmení sa jeho štýl
+                oznam.style.backgroundColor = "var(--orange)";
+                oznam.innerHTML = (element.meno.charAt(0).toUpperCase() + element.meno.slice(1)) + " remízoval a získava pol boda!";
+                setTimeout(function(){oznam.style.backgroundColor = "var(--darkwhite)";oznam.innerHTML = "Turnaj prebieha." },3000);// po troch sekundách oznámenie aj jeho štýl zmiznú.
+            });
+            //všetko čo sme doteraz vytvorili sa pripne na riadok s informáciami o hráčovi
+            let remizaTd = document.createElement("td");
+            remizaTd.appendChild(remizaButton);
+            riadok.appendChild(remizaTd);
+            
+            //tlačidlo na vymazanie hráča
+            let removeButton = document.createElement("button");
+            removeButton.appendChild(document.createTextNode("Odstrániť hráča"));
+            removeButton.addEventListener("click", () => {
+                //zo zoznamu hráčov sa odstráni daný hráč
+                hraci.splice(hraci.indexOf(element),1);
+                // nové pole so zoradenými hráčmi sa zapíše do localStorage
+                zoradit(hraci);
+                localStorage.setItem("hraci",JSON.stringify(hraci));
+                //do tabuľky sa načítajú aktuálne údaje
+                ukazHracov();
+                //v paragrafe "oznam" nad tabuľkou sa zobrazi informácie o zmene ktorú používateľ práve vykonal a zmení sa jeho štýl
+                oznam.innerHTML = (element.meno.charAt(0).toUpperCase() + element.meno.slice(1)) + " bol zmazaný zo zápasu!"
+                setTimeout(function(){oznam.style.backgroundColor = "var(--darkwhite)";oznam.innerHTML = "Turnaj prebieha." },3000);// po troch sekundách oznámenie aj jeho štýl zmiznú.
+            });
+            //všetko čo sme doteraz vytvorili sa pripne na riadok s informáciami o hráčovi
+            let removeTd = document.createElement("td");
+            removeTd.appendChild(removeButton);
+            riadok.appendChild(removeTd);
+            
+            //celý riadok sa pripne na tabuľku a pokračuje sa v iterácií
+            tabulka.appendChild(riadok);    
+        });
+    };  
+
+    //funkcia, ktorá vymaže údaje v localStorage a údaje z polí hráči a predošlé poradie
+    function novaHra() {
+        hraci = [];
+        predoslePoradie = [];
+        localStorage.setItem("hraci",JSON.stringify(hraci));
+        localStorage.setItem("predoslePoradie",JSON.stringify(predoslePoradie));
+        //vyrenderuje sa prázdna tabuľka
+        ukazHracov();
+    }
+    
+    //funkcia ktorá zoradí hráčov podľa počtu bodov.
+    function zoradit(array) {
+        array.sort((a,b) => {return (b.vyhry * 1 + b.remizy * 0.5) - (a.vyhry * 1 + a.remizy * 0.5)});
+    }
+
+    //Ak localstorage nie je prázdny, zapíš údaje z neho do polí hráči a predošlé poradie.
+    if(localStorage.getItem("hraci") !== null){
+        hraci = JSON.parse(localStorage.getItem("hraci"));
+        localStorage.setItem("predoslePoradie",JSON.stringify(predoslePoradie));
+        zoradit(hraci);
+        ukazHracov();
+    }
+</script>
+</body>
+</html>
